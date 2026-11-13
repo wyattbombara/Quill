@@ -950,7 +950,7 @@ function ChatApp() {
               <strong id="delete-question">
                 Delete “{deleteTarget.title}”?
               </strong>
-              <span>This permanently removes the chat from this device.</span>
+              <span>This removes the chat and its attachments from Quill. Copies may remain in backups or on disk. Secure erasure is not guaranteed.</span>
               {deleteError && (
                 <span className="delete-error" role="alert">
                   {deleteError}
