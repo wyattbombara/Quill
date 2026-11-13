@@ -12,9 +12,9 @@ fn reconnect_and_explicit_billing_survive_restart() {
         database::{Database, begin_with_model},
     };
     let directory = tempfile::tempdir().unwrap();
-    let db = Database(directory.path().join("fixture.sqlite"));
+    let db = Database::with_key(directory.path().join("fixture.sqlite"), &[42;32]);
     db.initialize().unwrap();
-    let mut connection = rusqlite::Connection::open(&db.0).unwrap();
+    let mut connection = db.connect().unwrap();
     let host = accounts::host(&connection).unwrap();
     assert!(host.starts_with("urn:uuid:"));
     assert!(accounts::status(&connection).unwrap().active.is_none());
@@ -24,7 +24,7 @@ fn reconnect_and_explicit_billing_survive_restart() {
         .unwrap();
     drop(connection);
     db.initialize().unwrap();
-    connection = rusqlite::Connection::open(&db.0).unwrap();
+    connection = db.connect().unwrap();
     assert_eq!(accounts::host(&connection).unwrap(), host);
     let status = accounts::status(&connection).unwrap();
     assert_eq!(status.active.as_deref(), Some("example"));

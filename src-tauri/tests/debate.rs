@@ -97,7 +97,7 @@ fn agents(n: usize) -> Vec<DebateAgent> {
 }
 async fn exercise(agree: bool, seats: usize) {
     let tmp = tempfile::tempdir().unwrap();
-    let db = Database(tmp.path().join("roundtable.db"));
+    let db = Database::with_key(tmp.path().join("roundtable.db"), &[42;32]);
     db.initialize().unwrap();
     let models = agents(seats);
     let run = AgentRun {
@@ -235,7 +235,7 @@ async fn stop_cancels_independent_replies() {
 
 async fn cancel_run(mode: AgentMode) {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database(temp.path().join("cancel.db"));
+    let db = Database::with_key(temp.path().join("cancel.db"), &[42;32]);
     db.initialize().unwrap();
     let models = agents(2);
     let run = AgentRun {
@@ -303,7 +303,7 @@ async fn cancel_run(mode: AgentMode) {
 #[tokio::test]
 async fn independent_seats_share_a_snapshot_and_survive_a_peer_failure() {
     let tmp = tempfile::tempdir().unwrap();
-    let db = Database(tmp.path().join("parallel.db"));
+    let db = Database::with_key(tmp.path().join("parallel.db"), &[42;32]);
     db.initialize().unwrap();
     let mut team = agents(3);
     for a in &mut team {
@@ -434,9 +434,9 @@ async fn independent_seats_share_a_snapshot_and_survive_a_peer_failure() {
 fn parallel_limits_follow_active_tier_and_only_its_recent_requests() {
     use quill_chat::services::accounts::{host, parallel_capacity};
     let dir = tempfile::tempdir().unwrap();
-    let db = Database(dir.path().join("limits.sqlite"));
+    let db = Database::with_key(dir.path().join("limits.sqlite"), &[42;32]);
     db.initialize().unwrap();
-    let mut c = rusqlite::Connection::open(db.0).unwrap();
+    let mut c = db.connect().unwrap();
     host(&c).unwrap();
     assert_eq!(parallel_capacity(&c).unwrap().seats, 3);
     c.execute("INSERT INTO chats(title) VALUES('test')", [])
