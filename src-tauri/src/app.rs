@@ -90,11 +90,10 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if window
-                    .state::<desktop::CloseBehavior>()
-                    .0
-                    .load(std::sync::atomic::Ordering::Acquire)
-                {
+                let Some(behavior) = window.try_state::<desktop::CloseBehavior>() else {
+                    return;
+                };
+                if behavior.0.load(std::sync::atomic::Ordering::Acquire) {
                     window.app_handle().exit(0);
                 } else if window.hide().is_ok() {
                     api.prevent_close();
