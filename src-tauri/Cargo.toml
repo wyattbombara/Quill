@@ -1,6 +1,6 @@
 [package]
 name = "quill-chat"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2024"
 rust-version = "1.90"
 description = "Local desktop chat for the OpenAI API"
@@ -19,6 +19,8 @@ test = false
 tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
+tempfile = "=3.27.0"
+zeroize = "=1.9.1"
 tauri = { version = "=2.12.5", features = ["tray-icon"] }
 tauri-plugin-dialog = "=2.8.4"
 tauri-plugin-global-shortcut = "=2.4.1"
@@ -33,7 +35,7 @@ tokio-util = { version = "=0.7.18", features = ["rt"] }
 reqwest = { version = "=0.13.5", features = ["json", "form", "stream", "native-tls"], default-features = false }
 eventsource-stream = "=0.2.3"
 futures-util = "=0.3.32"
-rusqlite = { version = "=0.37.0", features = ["bundled"] }
+rusqlite = { version = "=0.37.0", features = ["bundled-sqlcipher"] }
 base64 = "=0.22.1"
 ring = "=0.17.14"
 jsonwebtoken = { version = "=9.3.1", default-features = false }
@@ -46,5 +48,4 @@ keyring = { version = "=3.6.3", features = ["apple-native"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "=3.6.3", features = ["sync-secret-service", "crypto-rust"] }
 
-[dev-dependencies]
-tempfile = "=3.27.0"
+
