@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://releases.example.invalid/quill/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_CONTENTS_OF_QUILL_SIGNING_PUBLIC_KEY",
+      "requireSignedVersion": true
+    }
+  }
+}
