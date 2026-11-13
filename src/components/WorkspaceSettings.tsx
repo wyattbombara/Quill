@@ -30,14 +30,26 @@ export function WorkspaceSettings({
       <fieldset className="workspace-settings">
         <legend>Desktop behavior</legend>
         {checks.map(([key, label]) => (
-          <label key={key}>
-            <input
-              type="checkbox"
-              checked={options[key]}
-              onChange={(e) => update(key, e.target.checked)}
-            />
-            {label}
-          </label>
+          <div key={key}>
+            <label>
+              <input
+                type="checkbox"
+                aria-describedby={
+                  key === 'restore_drafts' ? 'draft-storage-note' : undefined
+                }
+                checked={options[key]}
+                onChange={(e) => update(key, e.target.checked)}
+              />
+              {label}
+            </label>
+            {key === 'restore_drafts' && (
+              <small id="draft-storage-note">
+                Off by default. When enabled, unsent text and files are saved in
+                unencrypted local browser storage, separate from chat history. Turning
+                this off and saving clears stored drafts.
+              </small>
+            )}
+          </div>
         ))}
         <label>
           <input
