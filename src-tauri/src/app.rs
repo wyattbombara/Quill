@@ -43,8 +43,28 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            let db = Database(dir.join("quill.sqlite3"));
-            let settings = db.initialize()?;
+            let opened = Database::from_keychain(dir.join("quill.sqlite3")).and_then(|db| {
+                let settings = db.initialize()?;
+                Ok((db, settings))
+            });
+            let (db, settings) = match opened {
+                Ok(opened) => opened,
+                Err(error) => {
+                    use tauri_plugin_dialog::DialogExt;
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.hide();
+                    }
+                    let handle = app.handle().clone();
+                    app.dialog()
+                        .message(format!(
+                            "Quill could not open your local history.\n\n{error}"
+                        ))
+                        .title("Quill storage")
+                        .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                        .show(move |_| handle.exit(1));
+                    return Ok(());
+                }
+            };
             app.manage(desktop::CloseBehavior(
                 settings.workspace.quit_on_close.into(),
             ));

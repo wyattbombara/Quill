@@ -2,6 +2,8 @@ use serde::{Serialize, Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Local storage: {0}")]
+    Storage(#[from] std::io::Error),
     #[error("{0}")]
     Message(String),
     #[error("Local database: {0}")]
