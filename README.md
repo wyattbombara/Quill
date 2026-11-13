@@ -1,6 +1,8 @@
 # Quill
 
-Quill is an independent desktop client for the OpenAI Responses API. It uses a local React interface, a Rust backend and the system WebView on Windows, macOS and Linux. Each installation keeps its own chat history.
+Quill is an independent desktop client for the replacement of the OpenAi desktop app. It uses a local React interface, a Rust backend and the system WebView on Windows, macOS and Linux. Each installation keeps its own chat history.
+
+The ram usage difference is significant, Quill itself runs under 4mb of ram (counting the external webview manager it is roughly 50mb). On the other hand Chatgpts desktop app runs over 2gb.
 
 The Afterglow desktop workspace has chat history on the left and an attachments panel on the right. Select the paperclip in the toolbar to open it. Settings → Workspace controls reading width, compact spacing, attachment visibility and the send shortcut. A reply shows its own short model label. Hover the label for the full model ID. Older chats use their recorded request model when no response model was saved.
 
