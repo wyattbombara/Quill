@@ -10,7 +10,7 @@ Choose **Settings → Motion** to follow your system preference or select smooth
 
 ## Download for Windows
 
-[Download Quill 0.2.8 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.2.8/Quill-0.2.8-windows-x64.zip). Extract the ZIP and open **Quill/quill-chat.exe** alongside its WebView2 loader. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
+[Download Quill 0.2.9 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.2.9/Quill-0.2.9-windows-x64.zip). Extract the ZIP and open **Quill/quill-chat.exe** with both included DLLs beside it. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
 
 ![Quill desktop workspace](screenshots/Quill-0.2.6-Afterglow.png)
 
@@ -93,6 +93,8 @@ Quill/
 
 ## Build and run
 
+For database encryption, builds use bundled SQLCipher. On Windows install matching OpenSSL headers and libraries, set **OPENSSL_DIR** (or **OPENSSL_INCLUDE_DIR** and **OPENSSL_LIB_DIR**), and distribute the matching crypto runtime if linking dynamically. Linux uses libssl-dev and macOS uses CommonCrypto.
+
 Use Rust **1.90 or newer** and Node **22.12 or newer** with npm. Run commands from the directory containing `package.json`. Both lockfiles are included. Build each platform’s installer on that operating system. [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 | Platform | Install before building | Release command |
@@ -133,7 +135,9 @@ The last command builds an executable for the current platform. Installers from 
 - Use **New chat**, the history sidebar, **Rename** and **Delete** to manage conversations. The tray offers Open, New chat and Quit. Closing the window hides it. The default global shortcut is **Ctrl+Alt+Space**, including on macOS.
 - Drop files on the composer or use **Attach**. Quill supports PNG, JPEG, WebP, PDF, TXT, Markdown, CSV and JSON. Limits are six files per turn, 8 MiB per file and 16 MiB total per turn. File contents are uploaded inline when you send. Completed turns replay their attachments on subsequent requests. A 48 MiB encoded attachment-history limit bounds a single request.
 - In API key mode, Settings offers 14 model presets grouped by GPT-6, GPT-5 and GPT-4. Select **Custom model…** to enter another Responses-compatible model ID, then choose **Save preferences**. **Save key** and **Remove key** use Windows Credential Manager, macOS Keychain or Linux Secret Service. The frontend receives only the key’s presence when reopening Settings. **System** appearance follows OS changes.
-- SQLite stores prompts, replies and attachment contents in `quill.sqlite3` in the app-local data directory. This database is unencrypted. Deleting a conversation removes its rows and attachments. It does not perform secure erasure. Drafts stay in memory until sent or until the app exits.
+- Quill encrypts the entire chat database with SQLCipher, including titles, prompts, replies, attachments, goals, and agent transcripts. A randomly generated 256-bit history key lives in your OS credential store. Back up that credential with the database. Losing it makes encrypted history unreadable. An unlocked account or running Quill can still read the conversations.
+- On the first launch after upgrading from 0.2.8, Quill checkpoints the old SQLite database, verifies an encrypted copy, and replaces the original. You need enough free space for that copy. SQLite recovers rollback journals and checkpoints its WAL before migration. Quill checks that the old -wal, -shm, and -journal files are gone before replacing the database. Busy or unresolved sidecars stop the upgrade. Unlinking files cannot erase plaintext remnants from disk, older backups, or filesystem snapshots. Deleting a chat removes its history and attachments from Quill. Secure deletion is enabled within SQLite, but deletion cannot guarantee erasure from storage media or backups.
+- Unsent text and attachments stay in memory by default. Enabling **Restore unsent text and attachments** saves those drafts in the WebView's local IndexedDB, outside SQLCipher encryption. Turning the setting off and saving clears the stored drafts. Drafts retained in the current window can still be edited or sent.
 
 ## Streaming contract
 
