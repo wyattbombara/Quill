@@ -1,0 +1,14 @@
+{
+  "identifier": "main",
+  "description": "Local chat window. Native networking, credentials and updates stay in Rust.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "use-desktop-chat",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "dialog:allow-message"
+  ]
+}
+
