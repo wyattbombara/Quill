@@ -5,32 +5,7 @@ use crate::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
-use std::{path::PathBuf, time::Duration};
-
-#[derive(Clone)]
-pub struct Database(pub PathBuf);
-
-impl Database {
-    fn connect(&self) -> Result<Connection> {
-        let db = Connection::open(&self.0)?;
-        db.busy_timeout(Duration::from_secs(5))?;
-        db.pragma_update(None, "foreign_keys", true)?;
-        Ok(db)
-    }
-    pub fn initialize(&self) -> Result<Preferences> {
-        let db = self.connect()?;
-        db.execute_batch(include_str!("schema.sql"))?;
-        read_preferences(&db)
-    }
-    pub async fn run<T, F>(&self, work: F) -> Result<T>
-    where
-        T: Send + 'static,
-        F: FnOnce(&mut Connection) -> Result<T> + Send + 'static,
-    {
-        let db = self.clone();
-        tokio::task::spawn_blocking(move || work(&mut db.connect()?)).await?
-    }
-}
+pub use super::encrypted_store::Database;
 
 pub fn read_preferences(db: &Connection) -> Result<Preferences> {
     let value: Option<String> = db
