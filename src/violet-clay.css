@@ -1,0 +1,219 @@
+/* Violet / clay: liquid glass refinement */
+.shell.liquid-glass {
+  --glass-edge: rgba(255, 255, 255, .58);
+  --glass-shadow: 0 20px 60px -28px rgba(66, 38, 91, .42), 0 2px 8px rgba(66, 38, 91, .08);
+  background:
+    radial-gradient(circle at 72% 7%, rgba(236, 204, 227, .42), transparent 30%),
+    radial-gradient(circle at 35% 88%, rgba(205, 190, 238, .3), transparent 32%),
+    #f5f1f6;
+}
+.shell.liquid-glass main { background: transparent; }
+.shell.liquid-glass aside {
+  background: linear-gradient(160deg, rgba(43, 34, 52, .96), rgba(29, 24, 38, .98));
+  border-right-color: rgba(255, 255, 255, .1);
+  box-shadow: 14px 0 34px -30px rgba(38, 20, 45, .75);
+}
+.shell.liquid-glass .new-chat {
+  background: linear-gradient(135deg, rgba(250, 238, 249, .96), rgba(224, 212, 248, .9));
+  border-color: rgba(255,255,255,.8);
+  box-shadow: 0 8px 20px -14px rgba(236, 204, 227, .9);
+}
+.shell.liquid-glass .toolbar {
+  background: rgba(255, 253, 255, .42);
+  border-bottom-color: rgba(255,255,255,.6);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+}
+.shell.liquid-glass .toolbar .icon-btn,
+.shell.liquid-glass .model-switch,
+.shell.liquid-glass .palette-switch {
+  background: rgba(255, 255, 255, .32);
+  border-color: rgba(255, 255, 255, .72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 5px 14px -12px rgba(56, 28, 73, .55);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+.shell.liquid-glass .workspace {
+  background: radial-gradient(ellipse at 50% 8%, rgba(255,255,255,.34), transparent 48%);
+}
+.shell.liquid-glass .user-bubble {
+  background: linear-gradient(135deg, rgba(244, 232, 242, .72), rgba(230, 220, 247, .62));
+  border: 1px solid rgba(255,255,255,.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 10px 22px -18px rgba(79, 43, 89, .65);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+.shell.liquid-glass .reply-mark {
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: 0 7px 16px -12px rgba(93, 50, 98, .75), inset 0 1px 0 rgba(255,255,255,.75);
+}
+.shell.liquid-glass .composer {
+  background: rgba(255, 253, 255, .48);
+  border-color: rgba(255,255,255,.84);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,.8);
+  backdrop-filter: blur(26px) saturate(1.22);
+  -webkit-backdrop-filter: blur(26px) saturate(1.22);
+}
+.shell.liquid-glass .composer:focus-within {
+  border-color: rgba(145, 104, 169, .78);
+  box-shadow: 0 0 0 3px rgba(183, 145, 197, .18), var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,.86);
+}
+.shell.liquid-glass .primary {
+  background: linear-gradient(135deg, #8a5db1, #65449b);
+  border-color: rgba(255,255,255,.46);
+  box-shadow: 0 8px 18px -10px rgba(84, 42, 110, .8), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.shell.liquid-glass .jump {
+  background: rgba(255, 253, 255, .7);
+  border-color: rgba(255,255,255,.85);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .shell.liquid-glass .toolbar,
+  .shell.liquid-glass .toolbar .icon-btn,
+  .shell.liquid-glass .model-switch,
+  .shell.liquid-glass .palette-switch,
+  .shell.liquid-glass .user-bubble,
+  .shell.liquid-glass .composer,
+  .shell.liquid-glass .jump { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Violet / clay: glossy glass pass */
+.shell.liquid-glass {
+  --gloss-line: rgba(255, 255, 255, .72);
+  background:
+    radial-gradient(ellipse at 76% -8%, rgba(255, 255, 255, .96) 0 9%, rgba(245, 211, 232, .64) 24%, transparent 48%),
+    radial-gradient(ellipse at 10% 78%, rgba(220, 204, 250, .5), transparent 38%),
+    linear-gradient(135deg, #f6f0f7 0%, #fbf8fb 48%, #f0eaf4 100%);
+}
+.shell.liquid-glass .brand {
+  justify-content: center;
+  padding-inline: 4px;
+  text-shadow: 0 2px 12px rgba(238, 196, 236, .25);
+}
+.shell.liquid-glass aside {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(190, 143, 209, .2), transparent 34%),
+    linear-gradient(155deg, rgba(52, 35, 62, .98), rgba(26, 20, 35, .98));
+}
+.shell.liquid-glass .brand-icon {
+  filter: drop-shadow(0 0 8px rgba(218, 171, 227, .65));
+}
+.shell.liquid-glass .toolbar {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.26)),
+    rgba(250, 244, 252, .44);
+  box-shadow: 0 10px 28px -24px rgba(78, 39, 88, .75), inset 0 1px 0 rgba(255,255,255,.94);
+}
+.shell.liquid-glass .toolbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.95), transparent);
+}
+.shell.liquid-glass .toolbar .icon-btn,
+.shell.liquid-glass .model-switch,
+.shell.liquid-glass .palette-switch {
+  background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(245,231,249,.3));
+  border-color: rgba(255,255,255,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(194,156,203,.12), 0 8px 20px -15px rgba(84, 42, 105, .75);
+}
+.shell.liquid-glass .user-bubble {
+  background: linear-gradient(145deg, rgba(255,255,255,.64), rgba(233,215,242,.48) 52%, rgba(216,196,236,.42));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.96), inset 0 -1px 0 rgba(175,128,190,.16), 0 12px 24px -20px rgba(79, 43, 89, .9);
+}
+.shell.liquid-glass .reply-mark {
+  background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(223,193,232,.52));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 0 16px rgba(208, 158, 221, .28);
+}
+.shell.liquid-glass .composer {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.82), rgba(245,229,248,.5) 50%, rgba(224,207,239,.4)),
+    rgba(255,255,255,.4);
+  border-color: rgba(255,255,255,.96);
+  box-shadow: 0 24px 54px -26px rgba(69, 31, 83, .5), inset 0 1px 0 rgba(255,255,255,.98), inset 0 -1px 0 rgba(179,135,191,.15);
+}
+.shell.liquid-glass .primary {
+  background: linear-gradient(145deg, #a46bc3 0%, #7951ab 48%, #5d408e 100%);
+  box-shadow: 0 10px 22px -10px rgba(76, 36, 103, .9), inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(55, 26, 72, .25);
+}
+.shell.liquid-glass.dark-mode {
+  background:
+    radial-gradient(ellipse at 76% -12%, rgba(171, 111, 185, .4) 0 10%, rgba(92, 57, 113, .25) 25%, transparent 52%),
+    radial-gradient(ellipse at 12% 88%, rgba(91, 76, 156, .28), transparent 40%),
+    linear-gradient(135deg, #17141e 0%, #211a27 48%, #15141d 100%);
+}
+.shell.liquid-glass.dark-mode aside {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(192, 120, 201, .22), transparent 36%),
+    linear-gradient(155deg, #302037, #17131f 70%);
+  border-right-color: rgba(242, 207, 247, .14);
+}
+.shell.liquid-glass.dark-mode .toolbar {
+  background:
+    linear-gradient(180deg, rgba(100, 67, 113, .64), rgba(38, 28, 48, .48)),
+    rgba(29, 23, 36, .58);
+  box-shadow: 0 14px 30px -24px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.16);
+}
+.shell.liquid-glass.dark-mode .toolbar::after {
+  background: linear-gradient(90deg, transparent, rgba(255,218,247,.38), transparent);
+}
+.shell.liquid-glass.dark-mode .toolbar .icon-btn,
+.shell.liquid-glass.dark-mode .model-switch,
+.shell.liquid-glass.dark-mode .palette-switch {
+  background: linear-gradient(145deg, rgba(132, 91, 148, .62), rgba(47, 34, 58, .55));
+  border-color: rgba(239, 210, 244, .22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.24), 0 9px 22px -15px rgba(0,0,0,.9);
+}
+.shell.liquid-glass.dark-mode .workspace {
+  background: radial-gradient(ellipse at 48% 5%, rgba(174, 111, 185, .15), transparent 42%);
+}
+.shell.liquid-glass.dark-mode .user-bubble {
+  background: linear-gradient(145deg, rgba(126, 85, 137, .58), rgba(70, 49, 80, .52) 56%, rgba(48, 37, 58, .62));
+  border-color: rgba(245, 215, 245, .2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(0,0,0,.22), 0 12px 24px -20px rgba(0,0,0,.95);
+}
+.shell.liquid-glass.dark-mode .reply-mark {
+  background: linear-gradient(145deg, rgba(161, 107, 175, .7), rgba(68, 44, 79, .66));
+  border-color: rgba(246, 218, 246, .24);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 0 20px rgba(207, 132, 216, .25);
+}
+.shell.liquid-glass.dark-mode .composer {
+  background: linear-gradient(145deg, rgba(102, 68, 113, .7), rgba(42, 30, 53, .7) 56%, rgba(30, 25, 39, .8));
+  border-color: rgba(246, 222, 246, .3);
+  box-shadow: 0 24px 55px -24px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 0 rgba(0,0,0,.26);
+}
+.shell.liquid-glass.dark-mode .primary {
+  background: linear-gradient(145deg, #c182da, #8b5ab6 52%, #694396);
+  color: #25162d;
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(53, 24, 69, .4);
+}
+
+/* Center the actual quill mark to the sidebar action column */
+.shell.liquid-glass .brand {
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 22px;
+  font-size: 28px;
+  letter-spacing: -.7px;
+}
+.shell.liquid-glass .brand-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.shell { color: var(--ink); }
+.shell select option {color:var(--ink);background:var(--field);}
+.live-workspace nav button.selected {box-shadow:inset 2px 0 var(--rail-accent);}
+.live-workspace .palette-switch {flex:0 1 auto;width:auto;margin:0;}
+.live-workspace .model-switch {border-radius:999px;}
+.live-workspace.liquid-glass .new-chat {color:#302437;}
+.shell.liquid-glass.dark-mode .jump {background:var(--surface);color:var(--ink);border-color:var(--line);}
+.shell.liquid-glass .composer.dragging {outline:2px dashed var(--accent);}
+@media(max-width:920px){.live-workspace .crumb-prefix{display:none;}.live-workspace .toolbar{gap:6px;}}
