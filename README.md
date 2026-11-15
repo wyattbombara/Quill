@@ -24,7 +24,7 @@ Run **/parallel**, then enable **Blind comparison** and choose a category. Vote 
 
 ## Download for Windows
 
-[Download Quill 0.3.2 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.3.2/Quill-0.3.2-windows-x64.zip). The ZIP includes the executable and both required DLLs. Extract the ZIP and open **Quill/quill-chat.exe** with both included DLLs beside it. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
+[Download Quill 0.3.2 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.3.2/Quill-0.3.2-windows-x64.7z). The 7z archive includes the executable and both required DLLs. Extract the archive and open **Quill/quill-chat.exe** with both included DLLs beside it. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
 
 ![Quill desktop workspace](screenshots/Quill-0.2.6-Afterglow.png)
 
