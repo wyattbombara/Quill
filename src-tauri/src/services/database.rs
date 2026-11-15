@@ -1,3 +1,4 @@
+pub use super::encrypted_store::Database;
 use crate::{
     error::{Result, invalid},
     model::{Attachment, Chat, Preferences, Turn, Usage, UsageReport},
@@ -5,7 +6,6 @@ use crate::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
-pub use super::encrypted_store::Database;
 
 pub fn read_preferences(db: &Connection) -> Result<Preferences> {
     let value: Option<String> = db
@@ -29,10 +29,10 @@ pub fn chats(db: &Connection) -> Result<Vec<Chat>> {
     .collect::<rusqlite::Result<_>>()?)
 }
 pub fn set_goal(db: &mut Connection, chat: Option<i64>, goal: Option<String>) -> Result<Chat> {
-    if let Some(text) = &goal {
-        if text.trim().is_empty() || text.chars().count() > 2000 {
-            return Err(invalid("Use a goal of 1–2,000 characters."));
-        }
+    if let Some(text) = &goal
+        && (text.trim().is_empty() || text.chars().count() > 2000)
+    {
+        return Err(invalid("Use a goal of 1–2,000 characters."));
     }
     let tx = db.transaction()?;
     let id = match chat {
@@ -188,6 +188,21 @@ pub fn begin_authorized_turn(
     debate: Option<crate::model::AgentRun>,
     expected_account: Option<Option<String>>,
 ) -> Result<Request> {
+    let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    let request =
+        authorized_in_transaction(&tx, chat, prompt, files, model, debate, expected_account)?;
+    tx.commit()?;
+    Ok(request)
+}
+pub fn authorized_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    chat: i64,
+    prompt: String,
+    files: Vec<Attachment>,
+    model: Option<String>,
+    debate: Option<crate::model::AgentRun>,
+    expected_account: Option<Option<String>>,
+) -> Result<Request> {
     if prompt.trim().is_empty() && files.is_empty() {
         return Err(invalid("Enter a message or attach a file."));
     }
@@ -195,7 +210,6 @@ pub fn begin_authorized_turn(
         return Err(invalid("Message exceeds 512 KB."));
     }
     validate_files(&files)?;
-    let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     if let Some(expected) = expected_account {
         let active: Option<String> = tx
             .query_row("SELECT active FROM oauth_host", [], |r| r.get(0))
@@ -210,8 +224,8 @@ pub fn begin_authorized_turn(
     if let Some(run) = &debate {
         super::debate::validate_agents(&run.agents)?;
         let limit = match run.mode {
-            crate::model::AgentMode::Parallel => super::accounts::parallel_capacity(&tx)?.seats,
-            crate::model::AgentMode::Roundtable => read_preferences(&tx)?
+            crate::model::AgentMode::Parallel => super::accounts::parallel_capacity(tx)?.seats,
+            crate::model::AgentMode::Roundtable => read_preferences(tx)?
                 .workspace
                 .roundtable_budget
                 .clamp(2, 8),
@@ -224,7 +238,7 @@ pub fn begin_authorized_turn(
     }
     let model = match model {
         Some(model) => model,
-        None => read_preferences(&tx)?.model,
+        None => read_preferences(tx)?.model,
     };
     let previous: i64 = tx.query_row("SELECT count(*) FROM turns WHERE chat=?", [chat], |r| {
         r.get(0)
@@ -278,7 +292,7 @@ pub fn begin_authorized_turn(
             "Attachment history is full. Start a new chat to send more files.",
         ));
     }
-    let mut input = Vec::new();
+    let mut input = super::studio::context(tx, chat)?;
     let goal: Option<String> = tx
         .query_row("SELECT goal FROM chat_goals WHERE chat=?", [chat], |r| {
             r.get(0)
@@ -290,10 +304,10 @@ pub fn begin_authorized_turn(
         let mut fq = tx.prepare("SELECT name,mime,data FROM files WHERE turn=? ORDER BY id")?;
         while let Some(row) = rows.next()? {
             let turn: i64 = row.get(0)?;
-            if turn == id {
-                if let Some(goal) = &goal {
-                    input.push(json!({"role":"user", "content":format!("My goal for this conversation: {goal}")}));
-                }
+            if turn == id
+                && let Some(goal) = &goal
+            {
+                input.push(json!({"role":"user", "content":format!("My goal for this conversation: {goal}")}));
             }
             let text: String = row.get(1)?;
             let mut parts = Vec::new();
@@ -314,10 +328,26 @@ pub fn begin_authorized_turn(
             }
             input.push(json!({"role":"user","content":parts}));
             if turn != id {
+                let mut notes = super::studio::floor_log(tx, turn)?;
+                if notes.is_empty() {
+                    let snapshot: Option<String> = tx
+                        .query_row(
+                            "SELECT debate FROM copied_turns WHERE turn=?",
+                            [turn],
+                            |r| r.get(0),
+                        )
+                        .optional()?
+                        .flatten();
+                    if let Some(raw) = snapshot {
+                        notes = serde_json::from_str::<crate::model::Debate>(&raw)?.floor;
+                    }
+                }
+                for note in notes {
+                    input.push(json!({"role":"user","content":note.text}));
+                }
                 input.push(json!({"role":"assistant","content":row.get::<_,String>(2)?}));
             }
         }
     }
-    tx.commit()?;
     Ok(Request { id, model, input })
 }

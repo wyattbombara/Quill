@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS debate_entries (
 CREATE TABLE IF NOT EXISTS entry_models (entry INTEGER PRIMARY KEY REFERENCES debate_entries(id) ON DELETE CASCADE, model TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS debate_entries_by_turn ON debate_entries(turn,id);
 UPDATE debate_entries SET status='interrupted' WHERE status='streaming';
-INSERT OR IGNORE INTO turn_usage(turn,chat) SELECT id,chat FROM turns WHERE id NOT IN (SELECT turn FROM debates);
+CREATE TABLE IF NOT EXISTS copied_turns(turn INTEGER PRIMARY KEY REFERENCES turns(id) ON DELETE CASCADE, debate TEXT);
+INSERT OR IGNORE INTO turn_usage(turn,chat) SELECT id,chat FROM turns WHERE id NOT IN (SELECT turn FROM debates) AND id NOT IN (SELECT turn FROM copied_turns);
 UPDATE turns SET status='interrupted' WHERE status='streaming';
 CREATE TABLE IF NOT EXISTS oauth_accounts (
     id TEXT PRIMARY KEY, subject TEXT NOT NULL, label TEXT NOT NULL,
@@ -83,3 +84,11 @@ CREATE TRIGGER IF NOT EXISTS date_agent AFTER INSERT ON debate_entries BEGIN
     INSERT INTO request_times(agent,request,account)
     VALUES(1,NEW.id,(SELECT account FROM turn_accounts WHERE turn=NEW.turn));
 END;
+
+CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY, name TEXT NOT NULL, draft TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS members(chat INTEGER PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE, project INTEGER NOT NULL REFERENCES projects(id));
+CREATE TABLE IF NOT EXISTS pins(id INTEGER PRIMARY KEY, project INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE, kind TEXT NOT NULL, text TEXT NOT NULL, source INTEGER REFERENCES turns(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS forks(chat INTEGER PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE, parent INTEGER REFERENCES chats(id) ON DELETE SET NULL, fork_turn INTEGER REFERENCES turns(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS ballots(turn INTEGER PRIMARY KEY REFERENCES turns(id) ON DELETE CASCADE, ordering TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'General', winner INTEGER);
+CREATE TABLE IF NOT EXISTS floor_log(id INTEGER PRIMARY KEY, turn INTEGER NOT NULL REFERENCES debates(turn) ON DELETE CASCADE, after_entry INTEGER, seat INTEGER, text TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS prune_empty_project AFTER DELETE ON members WHEN NOT EXISTS (SELECT 1 FROM members WHERE project=OLD.project) BEGIN DELETE FROM projects WHERE id=OLD.project; END;

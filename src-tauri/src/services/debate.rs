@@ -53,7 +53,27 @@ pub fn load(db: &Connection, turn: i64) -> rusqlite::Result<Option<Debate>> {
             r.get(0)
         })
         .optional()?;
-    let Some(raw) = raw else { return Ok(None) };
+    let Some(raw) = raw else {
+        let snapshot: Option<String> = db
+            .query_row(
+                "SELECT debate FROM copied_turns WHERE turn=?",
+                [turn],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten();
+        return snapshot
+            .map(|s| {
+                serde_json::from_str(&s).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })
+            })
+            .transpose();
+    };
     let roster = serde_json::from_str::<StoredRoster>(&raw).map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
     })?;
@@ -74,6 +94,8 @@ pub fn load(db: &Connection, turn: i64) -> rusqlite::Result<Option<Debate>> {
     Ok(Some(Debate {
         run: roster.into_run(),
         entries,
+        floor: super::studio::floor_log(db, turn)?,
+        ballot: super::studio::ballot(db, turn)?,
     }))
 }
 
@@ -96,6 +118,17 @@ impl Room<'_> {
         phase: &'static str,
         direction: &str,
         transcript: &[Value],
+    ) -> Result<String> {
+        self.speak_with_token(seat, phase, direction, transcript, self.token)
+            .await
+    }
+    async fn speak_with_token(
+        &self,
+        seat: usize,
+        phase: &'static str,
+        direction: &str,
+        transcript: &[Value],
+        speaker: &CancellationToken,
     ) -> Result<String> {
         if self.token.is_cancelled() {
             return Err(Error::Cancelled);
@@ -136,7 +169,7 @@ impl Room<'_> {
             }
             let request = Request { id, model: agent.model.clone(), input };
             let post = self.client.post(self.endpoint).bearer_auth(self.key);
-            api::stream_into(post, self.db, request, self.token, self.channel, &mut text, true).await?;
+            api::stream_into(post, self.db, request, speaker, self.channel, &mut text, true).await?;
             if text.trim().is_empty() {
                 return Err(invalid("The model returned an empty contribution."));
             }
@@ -163,6 +196,7 @@ impl Room<'_> {
         })?;
         match outcome {
             Ok(()) => Ok(text),
+            Err(Error::Cancelled) if !self.token.is_cancelled() => Ok(text),
             Err(Error::Cancelled) => Err(Error::Cancelled),
             Err(e) => Err(invalid(format!(
                 "{} ({phase}): {e}",
@@ -187,6 +221,8 @@ impl Room<'_> {
     }
 }
 
+// Keep the transport, persistence and cancellation dependencies explicit at this boundary.
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     db: &Database,
     client: &reqwest::Client,
@@ -197,6 +233,25 @@ pub async fn run(
     run: &AgentRun,
     token: &CancellationToken,
     channel: &Channel<StreamEvent>,
+) -> Result<String> {
+    run_controlled(
+        db, client, endpoint, key, chat, request, run, token, channel, None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn run_controlled(
+    db: &Database,
+    client: &reqwest::Client,
+    endpoint: &str,
+    key: &str,
+    chat: i64,
+    request: Request,
+    run: &AgentRun,
+    token: &CancellationToken,
+    channel: &Channel<StreamEvent>,
+    floor: Option<&super::floor::Floor>,
 ) -> Result<String> {
     let agents = &run.agents;
     validate_agents(agents)?;
@@ -244,6 +299,9 @@ pub async fn run(
             "The Roundtable budget changed. Reduce the lineup and retry.",
         ));
     }
+    if let Some(floor) = floor {
+        return interactive(&room, floor, budget).await;
+    }
     // With a full table, the chair contributes as the final speaker.
     let openings = agents.len().min(budget - 1);
     let mut discussion=room.parallel(openings,"opening","Independently answer the user's question in a short paragraph. Identify the assumption your answer depends on.",&[]).await?;
@@ -266,4 +324,67 @@ pub async fn run(
     let rebuttals=room.parallel(agents.len().min(budget-openings-2),"rebuttal","Reply once to the disputed point. Address the strongest objection and say what evidence would change your answer. Keep it concise.",&discussion).await?;
     discussion.extend(rebuttals);
     room.speak(chair,"conclusion","Give the user the final answer. Explain what changed during the debate, the strongest unresolved objection, and any material uncertainty. Evaluate the arguments on their merits.",&discussion).await
+}
+async fn record_note(
+    room: &Room<'_>,
+    message: super::floor::Interjection,
+) -> Result<super::studio::FloorNote> {
+    let turn = room.request.id;
+    let note = room
+        .db
+        .run(move |db| {
+            let after_entry = db.query_row(
+                "SELECT max(id) FROM debate_entries WHERE turn=?",
+                [turn],
+                |r| r.get::<_, Option<i64>>(0),
+            )?;
+            db.execute(
+                "INSERT INTO floor_log(turn,after_entry,seat,text) VALUES(?,?,?,?)",
+                params![turn, after_entry, message.seat, message.text],
+            )?;
+            Ok(super::studio::FloorNote {
+                id: db.last_insert_rowid(),
+                seat: message.seat,
+                text: message.text,
+                after_entry,
+            })
+        })
+        .await?;
+    room.channel
+        .send(StreamEvent::FloorNote { note: note.clone() })?;
+    Ok(note)
+}
+
+async fn interactive(
+    room: &Room<'_>,
+    floor: &super::floor::Floor,
+    budget: usize,
+) -> Result<String> {
+    let mut discussion = Vec::new();
+    let chair = room.agents.len() - 1;
+    let mut next = 0;
+    let outcome=async {
+        for index in 0..budget {
+            let last=index+1==budget;
+            let (note,speaker)=floor.next(room.token,last);
+            if last {room.channel.send(StreamEvent::FloorClosed)?;}
+            let mut seat=if last {chair}else{next};
+            if let Some(note)=note {
+                if let Some(target)=note.seat {seat=target;}
+                let note=record_note(room,note).await?;
+                discussion.push(json!({"name":"You","phase":"interjection","text":note.text}));
+            }
+            let (phase,direction)=if last {("conclusion","Give the final answer. Incorporate the user's interjections and flag unresolved questions.")}
+                else {("discussion","Take one short speaking turn. Address the latest user interjection first. If you want the floor again to pursue a specific objection, end with a separate line beginning HAND: followed by a short reason.")};
+            let answer=room.speak_with_token(seat,phase,direction,&discussion,&speaker).await?;
+            if last {return Ok(answer)}
+            discussion.push(json!({"name":room.agents[seat].name,"text":answer}));
+            next=(seat+1)%room.agents.len();
+        }
+        Err(invalid("Roundtable has no remaining turns."))
+    }.await;
+    if let Some(note) = floor.close() {
+        record_note(room, note).await?;
+    }
+    outcome
 }
