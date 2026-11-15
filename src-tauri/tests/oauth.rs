@@ -12,7 +12,7 @@ fn reconnect_and_explicit_billing_survive_restart() {
         database::{Database, begin_with_model},
     };
     let directory = tempfile::tempdir().unwrap();
-    let db = Database::with_key(directory.path().join("fixture.sqlite"), &[42;32]);
+    let db = Database::with_key(directory.path().join("fixture.sqlite"), &[42; 32]);
     db.initialize().unwrap();
     let mut connection = db.connect().unwrap();
     let host = accounts::host(&connection).unwrap();

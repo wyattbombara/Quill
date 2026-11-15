@@ -97,7 +97,7 @@ fn agents(n: usize) -> Vec<DebateAgent> {
 }
 async fn exercise(agree: bool, seats: usize) {
     let tmp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(tmp.path().join("roundtable.db"), &[42;32]);
+    let db = Database::with_key(tmp.path().join("roundtable.db"), &[42; 32]);
     db.initialize().unwrap();
     let models = agents(seats);
     let run = AgentRun {
@@ -235,7 +235,7 @@ async fn stop_cancels_independent_replies() {
 
 async fn cancel_run(mode: AgentMode) {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(temp.path().join("cancel.db"), &[42;32]);
+    let db = Database::with_key(temp.path().join("cancel.db"), &[42; 32]);
     db.initialize().unwrap();
     let models = agents(2);
     let run = AgentRun {
@@ -303,7 +303,7 @@ async fn cancel_run(mode: AgentMode) {
 #[tokio::test]
 async fn independent_seats_share_a_snapshot_and_survive_a_peer_failure() {
     let tmp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(tmp.path().join("parallel.db"), &[42;32]);
+    let db = Database::with_key(tmp.path().join("parallel.db"), &[42; 32]);
     db.initialize().unwrap();
     let mut team = agents(3);
     for a in &mut team {
@@ -434,7 +434,7 @@ async fn independent_seats_share_a_snapshot_and_survive_a_peer_failure() {
 fn parallel_limits_follow_active_tier_and_only_its_recent_requests() {
     use quill_chat::services::accounts::{host, parallel_capacity};
     let dir = tempfile::tempdir().unwrap();
-    let db = Database::with_key(dir.path().join("limits.sqlite"), &[42;32]);
+    let db = Database::with_key(dir.path().join("limits.sqlite"), &[42; 32]);
     db.initialize().unwrap();
     let mut c = db.connect().unwrap();
     host(&c).unwrap();
@@ -472,4 +472,94 @@ fn parallel_limits_follow_active_tier_and_only_its_recent_requests() {
     c.execute("UPDATE request_times SET started=unixepoch()-3601", [])
         .unwrap();
     assert_eq!(parallel_capacity(&c).unwrap().seats, 5);
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn immediate_interjection_is_delivered_to_selected_final_speaker_and_persisted() {
+    use quill_chat::services::floor::Floor;
+    use std::sync::Arc;
+    let tmp = tempfile::tempdir().unwrap();
+    let db = Database::with_key(tmp.path().join("interactive.db"), &[77; 32]);
+    db.initialize().unwrap();
+    let run = AgentRun {
+        mode: AgentMode::Roundtable,
+        agents: agents(2),
+    };
+    let roster = run.clone();
+    let req = db
+        .run(move |c| {
+            let mut prefs = database::read_preferences(c)?;
+            prefs.workspace.roundtable_budget = 2;
+            c.execute(
+                "INSERT INTO preferences VALUES(1,?)",
+                [serde_json::to_string(&prefs)?],
+            )?;
+            c.execute("INSERT INTO chats(title) VALUES('Live debate')", [])?;
+            database::begin_turn(c, 1, "Design?".into(), vec![], None, Some(roster))
+        })
+        .await
+        .unwrap();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let endpoint = format!("http://{}/responses", listener.local_addr().unwrap());
+    let floor = Arc::new(Floor::new(2));
+    let controller = floor.clone();
+    let mock = std::thread::spawn(move || {
+        let (first, _) = listener.accept().unwrap();
+        let _ = read_request(&first);
+        controller
+            .interject(Some(0), "Offline only".into(), true)
+            .unwrap();
+        let (mut last, _) = listener.accept().unwrap();
+        let body = read_request(&last);
+        assert!(
+            body["input"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Seat 0")
+        );
+        assert!(
+            body["input"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap()
+                .contains("Offline only")
+        );
+        assert!(controller.interject(None, "Late".into(), false).is_err());
+        answer_stream(&mut last, "Use local storage.");
+    });
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap();
+    let answer = tokio::time::timeout(
+        Duration::from_secs(10),
+        debate::run_controlled(
+            &db,
+            &client,
+            &endpoint,
+            "test",
+            1,
+            req,
+            &run,
+            &CancellationToken::new(),
+            &Channel::new(|_| Ok(())),
+            Some(&floor),
+        ),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(answer, "Use local storage.");
+    mock.join().unwrap();
+    db.run(|c| {
+        let room = database::turns(c, 1)?.pop().unwrap().debate.unwrap();
+        assert_eq!(room.entries.len(), 2);
+        assert_eq!(room.entries[0].status, "stopped");
+        assert_eq!(room.entries[1].status, "complete");
+        assert_eq!(room.floor[0].after_entry, Some(room.entries[0].id));
+        assert_eq!(room.floor[0].text, "Offline only");
+        assert_eq!(database::usage_report(c, Some(1))?.chat.requests, 2);
+        Ok(())
+    })
+    .await
+    .unwrap();
 }

@@ -67,7 +67,7 @@ fn request() -> Request {
 #[tokio::test]
 async fn response_model_is_saved_on_the_originating_turn() {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(temp.path().join("model.sqlite3"), &[42;32]);
+    let db = Database::with_key(temp.path().join("model.sqlite3"), &[42; 32]);
     db.initialize().unwrap();
     db.run(|c| {
         c.execute("INSERT INTO chats(id,title) VALUES(1,'Chat')", [])?;
@@ -102,7 +102,7 @@ async fn response_model_is_saved_on_the_originating_turn() {
 #[tokio::test]
 async fn reads_fragmented_unicode_and_requires_completion() {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42;32]);
+    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42; 32]);
     db.initialize().unwrap();
     let (post, server) = fixture(
         ": heartbeat\r\n\r\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"🐦\"}\r\n\r\ndata: {\"type\":\"response.completed\"}\r\n\r\n",
@@ -142,7 +142,7 @@ async fn reads_fragmented_unicode_and_requires_completion() {
 #[tokio::test]
 async fn stop_drops_a_request_waiting_for_headers() {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42;32]);
+    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42; 32]);
     db.initialize().unwrap();
     let server = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let address = server.local_addr().unwrap();
@@ -186,7 +186,7 @@ async fn stop_drops_a_request_waiting_for_headers() {
 #[tokio::test]
 async fn preserves_refusals_and_reports_incomplete_reason() {
     let temp = tempfile::tempdir().unwrap();
-    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42;32]);
+    let db = Database::with_key(temp.path().join("test.sqlite3"), &[42; 32]);
     db.initialize().unwrap();
     db.run(|db| {
         db.execute("INSERT INTO turn_usage(turn,chat) VALUES(1,1)", [])?;
