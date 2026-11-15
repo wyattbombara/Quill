@@ -6,3 +6,5 @@ import './violet-clay.css';
 import './afterglow.css';
 
 createRoot(document.getElementById('root')!).render(<App />);
+
+import './studio.css';

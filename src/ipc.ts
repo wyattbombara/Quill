@@ -24,7 +24,13 @@ export interface DebateEntry {
   model?: string | null;
   id: number;
   seat: number;
-  phase: 'parallel' | 'opening' | 'review' | 'rebuttal' | 'conclusion';
+  phase:
+    | 'parallel'
+    | 'opening'
+    | 'review'
+    | 'rebuttal'
+    | 'conclusion'
+    | 'discussion';
   text: string;
   status: 'streaming' | 'complete' | 'failed' | 'interrupted' | 'stopped';
 }
@@ -34,7 +40,47 @@ export interface DebateAgent {
   personality: string;
   focus?: string;
 }
+export interface Ballot {
+  ordering: number[];
+  winner: number | null;
+}
+export interface FloorNote {
+  id: number;
+  after_entry: number | null;
+  seat: number | null;
+  text: string;
+}
+export interface Pin {
+  id: number;
+  kind: string;
+  text: string;
+  source: number | null;
+  chat: number | null;
+}
+export interface Workspace {
+  project: number | null;
+  projects: { id: number; name: string }[];
+  members: number[];
+  pins: Pin[];
+  recent: {
+    chat: number;
+    turn: number;
+    title: string;
+    prompt: string;
+    reply: string;
+    status: string;
+  }[];
+  draft: string;
+  revision: number;
+  parent: number | null;
+  children: number[];
+  scores: { category: string; model: string; wins: number; ballots: number }[];
+}
 export interface Debate {
+  floor?: FloorNote[];
+  interactive?: boolean;
+  closed?: boolean;
+  ballot?: Ballot | null;
   mode: AgentMode;
   agents: DebateAgent[];
   entries: DebateEntry[];
@@ -93,7 +139,9 @@ export interface Attachment {
   data: string;
 }
 export type StreamEvent =
-  | { type: 'started'; id: number; model: string }
+  | { type: 'started'; id: number; model: string; ballot?: Ballot | null }
+  | { type: 'floorNote'; note: FloorNote }
+  | { type: 'floorClosed' }
   | { type: 'model'; id: number; model: string; agent: boolean }
   | { type: 'delta'; text: string }
   | { type: 'agentStart'; entry: DebateEntry }
@@ -120,6 +168,26 @@ export interface AuthStatus {
 export const manageUsage = () =>
   call('open_link', { url: 'https://chatgpt.com/settings/usage' });
 type Commands = {
+  workspace: [{ chat: number }, Workspace];
+  fork_chat: [{ chat: number; turn: number }, number];
+  join_project: [{ chat: number; other: number }, void];
+  save_pin: [
+    {
+      chat: number;
+      id: number | null;
+      kind: string;
+      text: string;
+      source: number | null;
+    },
+    void,
+  ];
+  remove_pin: [{ chat: number; id: number }, void];
+  save_draft: [{ chat: number; text: string; revision: number }, void];
+  cast_vote: [{ turn: number; seat: number }, void];
+  take_floor: [
+    { id: number; text: string; seat: number | null; now: boolean },
+    void,
+  ];
   auth_status: [None, AuthStatus];
   chatgpt_login: [{ id: string | null }, void];
   cancel_login: [None, void];
@@ -149,6 +217,9 @@ type Commands = {
       files: Attachment[];
       channel: Channel<StreamEvent>;
       debate?: {
+        interactive?: boolean;
+        blind?: boolean;
+        category?: string;
         account: string | null;
         mode: AgentMode;
         agents: DebateAgent[];

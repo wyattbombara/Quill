@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { workspaceDefaults, type Usage } from './ipc';
 import { loadDrafts, storeDrafts } from './workspaceStorage';
+import { Studio, type StudioTab } from './components/Studio';
 import { WindowBar } from './components/WindowBar';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -98,6 +99,21 @@ function ChatApp() {
   const [inspectorOverride, setInspectorOverride] = useState<boolean | null>(
     null,
   );
+  const [studio, setStudio] = useState<StudioTab | null>(null);
+  const [pinSource, setPinSource] = useState<Turn | null>(null);
+  const [jumpTarget, setJumpTarget] = useState<number | null>(null);
+  useEffect(() => {
+    if (jumpTarget === null) return;
+    const frame = requestAnimationFrame(() => {
+      const message = document.getElementById('turn-' + jumpTarget);
+      if (message) {
+        message.scrollIntoView({ block: 'center' });
+        message.focus({ preventScroll: true });
+        setJumpTarget(null);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [turns, jumpTarget]);
   const [settings, setSettings] = useState(false);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const profile = auth?.accounts.find((account) => account.id === auth.active);
@@ -204,6 +220,8 @@ function ChatApp() {
     }
   }
   async function select(id: number | null) {
+    setStudio(null);
+    setPinSource(null);
     setDeleteTarget(null);
     setRoster(null);
     const next = id === null ? [] : await call('list_turns', { chat: id });
@@ -380,8 +398,8 @@ function ChatApp() {
   function command(name: CommandName, argument: string) {
     void run(async () => {
       const draftKey = chat ?? 0;
-      if (name === 'debate' || name === 'parallel') {
-        await chooseAgents(name === 'debate' ? 'roundtable' : 'parallel');
+      if (name === 'roundtable' || name === 'parallel') {
+        await chooseAgents(name === 'roundtable' ? 'roundtable' : 'parallel');
         setDrafts((prev) => ({
           ...prev,
           [draftKey]: { ...draft, text: argument },
@@ -488,8 +506,12 @@ function ChatApp() {
             let reply = turn.reply;
             let replyModel = turn.model;
             const entries = turn.debate?.entries.slice();
+            let floor = turn.debate?.floor ?? [];
+            let closed = turn.debate?.closed;
             for (const ev of batch) {
-              if (ev.type === 'delta') reply += ev.text;
+              if (ev.type === 'floorNote') floor = [...floor, ev.note];
+              else if (ev.type === 'floorClosed') closed = true;
+              else if (ev.type === 'delta') reply += ev.text;
               else if (ev.type === 'model') {
                 if (!ev.agent) replyModel = ev.model;
                 else if (entries) {
@@ -518,7 +540,7 @@ function ChatApp() {
               model: replyModel,
               reply,
               ...(turn.debate && entries
-                ? { debate: { ...turn.debate, entries } }
+                ? { debate: { ...turn.debate, entries, floor, closed } }
                 : {}),
             };
           }),
@@ -542,6 +564,8 @@ function ChatApp() {
                       mode: roster.mode,
                       agents: roster.agents,
                       entries: [],
+                      ballot: event.ballot,
+                      interactive: roster.interactive,
                     },
                   }
                 : {}),
@@ -565,6 +589,9 @@ function ChatApp() {
                 debate: {
                   mode: roster.mode,
                   account: roster.account,
+                  interactive: roster.interactive,
+                  blind: roster.blind,
+                  category: roster.category,
                   agents: roster.agents,
                 },
               }
@@ -620,9 +647,10 @@ function ChatApp() {
             const notification = new Notification(
               roster ? 'Quill · Agent run complete' : 'Quill · Reply ready',
               {
-                body: options.preview_notifications
-                  ? finished.reply.slice(0, 160)
-                  : 'Open the conversation in Quill.',
+                body:
+                  options.preview_notifications && !roster?.blind
+                    ? finished.reply.slice(0, 160)
+                    : 'Open the conversation in Quill.',
                 tag: 'quill-chat-' + id,
                 silent: true,
               },
@@ -852,6 +880,20 @@ function ChatApp() {
             </div>
           )}
           <button
+            className="studio-launch"
+            disabled={busy}
+            aria-expanded={!!studio}
+            onClick={() =>
+              void run(async () => {
+                if (chat === null) await create();
+                setPinSource(null);
+                setStudio(studio ? null : 'Resume');
+              })
+            }
+          >
+            Workspace
+          </button>
+          <button
             className="icon-btn guide-toggle"
             title="Keyboard guide"
             aria-label="Keyboard guide"
@@ -950,7 +992,10 @@ function ChatApp() {
               <strong id="delete-question">
                 Delete “{deleteTarget.title}”?
               </strong>
-              <span>This removes the chat and its attachments from Quill. Copies may remain in backups or on disk. Secure erasure is not guaranteed.</span>
+              <span>
+                This removes the chat and its attachments from Quill. Copies may
+                remain in backups or on disk. Secure erasure is not guaranteed.
+              </span>
               {deleteError && (
                 <span className="delete-error" role="alert">
                   {deleteError}
@@ -979,6 +1024,43 @@ function ChatApp() {
                 chat={chat}
                 turns={turns}
                 title={title}
+                actions={{
+                  busy,
+                  source: (id, turn) =>
+                    void run(async () => {
+                      if (!chats.some((c) => c.id === id))
+                        throw new Error('Source chat is unavailable.');
+                      if (
+                        !(await call('list_turns', { chat: id })).some(
+                          (t) => t.id === turn,
+                        )
+                      )
+                        throw new Error('Source message is unavailable.');
+                      await select(id);
+                      setJumpTarget(turn);
+                    }),
+                  vote: (turn, seat) =>
+                    void run(async () => {
+                      await call('cast_vote', { turn, seat });
+                      setTurns(await call('list_turns', { chat: chat! }));
+                    }),
+                  fork: (turn) =>
+                    void run(async () => {
+                      const next = await call('fork_chat', {
+                        chat: chat!,
+                        turn,
+                      });
+                      setChats(await call('list_chats', {}));
+                      await select(next);
+                      setNotice(
+                        'Branch created. Continue here or compare it in Workspace.',
+                      );
+                    }),
+                  pin: (turn) => {
+                    setPinSource(turn);
+                    setStudio('Memory');
+                  },
+                }}
                 followReplies={options.follow_replies}
               />
             ) : (
@@ -1040,6 +1122,7 @@ function ChatApp() {
                   key={roster.mode + roster.account}
                   roster={roster}
                   busy={busy}
+                  configure={(values) => setRoster({ ...roster, ...values })}
                   update={(agents) => setRoster({ ...roster, agents })}
                 />
               )}
@@ -1119,7 +1202,41 @@ function ChatApp() {
               </div>
             </section>
           </div>
-          {inspectorOpen && (
+          {studio && chat !== null && (
+            <Studio
+              key={chat}
+              chat={chat}
+              chats={chats}
+              turns={turns}
+              tab={studio}
+              tabChanged={setStudio}
+              source={pinSource}
+              clearSource={() => setPinSource(null)}
+              close={() => setStudio(null)}
+              navigate={(id, turn) =>
+                void run(async () => {
+                  await select(id);
+                  setJumpTarget(turn);
+                })
+              }
+              compose={(id, text, agents) =>
+                void run(async () => {
+                  await select(id);
+                  if (agents) await chooseAgents('parallel');
+                  setDrafts((prev) => ({
+                    ...prev,
+                    [id]: {
+                      ...(prev[id] ?? blank),
+                      text: [prev[id]?.text, text].filter(Boolean).join('\n\n'),
+                    },
+                  }));
+                  editor.current?.focus();
+                })
+              }
+              busy={busy}
+            />
+          )}
+          {!studio && inspectorOpen && (
             <AttachmentInspector
               key={chat ?? 'empty'}
               chat={chat}

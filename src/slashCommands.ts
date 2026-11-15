@@ -18,8 +18,8 @@ export const commands = [
     description: 'Show, set, or clear this chat’s goal',
   },
   {
-    name: 'debate',
-    usage: '/debate [question]',
+    name: 'roundtable',
+    usage: '/roundtable [question]',
     description: 'Choose models for Roundtable',
   },
   {
@@ -36,9 +36,13 @@ export type CommandName = (typeof commands)[number]['name'];
 export function parseInput(text: string) {
   if (text.startsWith('//'))
     return { kind: 'message', text: text.slice(1) } as const;
-  const match = /^\/([a-z][\w-]*)(?:[ \t]+([^\r\n]*))?$/i.exec(text);
+  const match = /^\/([a-z][\w-]*)(?:[ \t]+([^\r\n]*))?$/i.exec(
+    text,
+  );
   if (!match || /[\r\n]/.test(text)) return { kind: 'message', text } as const;
-  const command = commands.find((item) => item.name === match[1].toLowerCase());
+  const command = commands.find(
+    (item) => item.name === match[1].toLowerCase(),
+  );
   if (!command)
     return {
       kind: 'error',
@@ -48,7 +52,7 @@ export function parseInput(text: string) {
   const argument = (match[2] ?? '').trim();
   if (
     command.name !== 'goal' &&
-    command.name !== 'debate' &&
+    command.name !== 'roundtable' &&
     command.name !== 'parallel' &&
     command.usage.includes(' ') !== Boolean(argument)
   )
