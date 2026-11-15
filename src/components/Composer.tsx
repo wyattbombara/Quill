@@ -52,7 +52,9 @@ export function Composer({
   const matches =
     !busy && !dismissed && /^\/[a-z]*$/i.test(draft.text)
       ? commands.filter((item) =>
-          ('/' + item.name).startsWith(draft.text.toLowerCase()),
+          ('/' + item.name).startsWith(
+            draft.text.toLowerCase().replace(/[ \t]+/g, ' '),
+          ),
         )
       : [];
   const index = Math.min(selected, matches.length - 1);
@@ -89,10 +91,13 @@ export function Composer({
     const token = '/' + item.name;
     if (
       !completeOnly &&
-      (item.name === 'debate' ||
+      (item.name === 'roundtable' ||
         item.name === 'parallel' ||
         item.name === 'goal') &&
-      draft.text.toLowerCase() === token
+      draft.text
+        .toLowerCase()
+        .replace(/[ \t]+/g, ' ')
+        .trimEnd() === token
     ) {
       submit(token);
       return;
@@ -128,31 +133,20 @@ export function Composer({
   };
   return (
     <>
-      {roundtable && (
-        <div className="mode-strip" aria-label="Reply mode">
+      {roundtable?.mode && (
+        <div className="mode-strip" aria-label="Active agent session">
+          <span>
+            {roundtable.mode === 'parallel' ? 'Parallel agents' : 'Roundtable'}
+          </span>
           <button
             type="button"
-            aria-pressed={!roundtable.mode}
             disabled={busy}
             onClick={() =>
               roundtable.mode && roundtable.toggle(roundtable.mode)
             }
           >
-            <Icon name="chat" />
-            Chat
+            Return to chat
           </button>
-          {(['roundtable', 'parallel'] as const).map((mode) => (
-            <button
-              key={mode}
-              className={mode + '-toggle'}
-              type="button"
-              aria-pressed={roundtable.mode === mode}
-              disabled={busy}
-              onClick={() => roundtable.toggle(mode)}
-            >
-              {mode === 'parallel' ? 'Parallel' : 'Roundtable'}
-            </button>
-          ))}
         </div>
       )}
       <form
@@ -310,7 +304,10 @@ export function Composer({
             title="Browse slash commands"
             disabled={busy}
             onClick={() => {
-              if (draft.text && !/^\/[a-z]*$/i.test(draft.text)) {
+              if (
+                draft.text &&
+                !/^\/[a-z]*$/i.test(draft.text)
+              ) {
                 warn('Start a message with / to browse commands.');
                 editor.current?.focus();
                 return;
