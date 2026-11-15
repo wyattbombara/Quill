@@ -1,5 +1,7 @@
 # Quill
 
+[![CI](https://github.com/wyattbombara/Quill/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/wyattbombara/Quill/actions/workflows/ci.yml)
+
 Quill is an independent desktop client for the replacement of the OpenAi desktop app. It uses a local React interface, a Rust backend and the system WebView on Windows, macOS and Linux. Each installation keeps its own chat history.
 
 The ram usage difference is significant, Quill itself runs under 4mb of ram (counting the external webview manager it is roughly 50mb). On the other hand Chatgpts desktop app runs over 2gb.
@@ -10,9 +12,19 @@ Search your conversation titles in the sidebar or open **Usage** for your local 
 
 Choose **Settings → Motion** to follow your system preference or select smooth or reduced motion. **Delete** expands a confirmation beneath the conversation toolbar. Press **Escape** to keep the chat. In Settings, choose an **Interface font** and save your preferences.
 
+## Project workspace in 0.3.0
+
+Select **Try both · branch here** under any finished exchange to copy the conversation through that message. **Workspace → Branches** compares the original and branch side by side. Keep passages, edit the selection, then bring it back to the original composer.
+
+Under **Memory**, add related chats, pin a decision, record something tried, or save an open question. Pins carry into subsequent requests across those chats. **Resume** links to the original messages and can prepare a recap from the twelve latest exchange excerpts for your review before sending. Saved project notes and working drafts live in the encrypted database. A project survives while it has member chats. Deleting a source chat can leave its pinned notes and independent branch copies in the project.
+
+Under **Draft**, save a shared document and choose **Ask agents for edits**. Review the Parallel lineup and send the draft when ready. Choose a response to accept individual replacements. A replacement applies automatically only when its original passage matches exactly once. The draft also supports manual selection and insertion.
+
+Run **/parallel**, then enable **Blind comparison** and choose a category. Vote on a completed anonymous answer to reveal its model. **Workspace → Resume** shows your model picks by category. Run **/roundtable**, then enable **Pull up a chair** before starting. Select the center of the table to address everyone, or a seat to give that agent the next turn. Queue a comment or take the floor immediately. Select a raised hand to hear its objection. Interactive rounds run one speaker at a time, use the configured two-to-eight-request budget, and close interjections when the final speaker starts.
+
 ## Download for Windows
 
-[Download Quill 0.2.9 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.2.9/Quill-0.2.9-windows-x64.zip). Extract the ZIP and open **Quill/quill-chat.exe** with both included DLLs beside it. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
+[Download Quill 0.3.2 for Windows x64](https://github.com/wyattbombara/Quill/releases/download/v0.3.2/Quill-0.3.2-windows-x64.zip). The ZIP includes the executable and both required DLLs. Extract the ZIP and open **Quill/quill-chat.exe** with both included DLLs beside it. To send messages, connect an eligible ChatGPT account or supply your own OpenAI API key.
 
 ![Quill desktop workspace](screenshots/Quill-0.2.6-Afterglow.png)
 
@@ -36,13 +48,33 @@ The toolbar offers five palettes. Violet / clay uses the glass styling from the 
 
 ## Parallel agents
 
-Select **Parallel** beside the composer or type `/parallel your message`. Choose at least two agents. Quill caps Free, unknown tiers, and API-key mode at three seats. Plus, Go, Team, Business, Enterprise and Edu get four. Pro gets five below 20 requests recorded for that account on this device in the preceding hour, then four until activity falls below the threshold. Provider eligibility and limits still apply. Reconnect an older registration in Settings to refresh its signed plan details. Give each an optional assignment, then select **Run agents**. Each agent gets the same snapshot of the chat history, goal, prompt and attachments, alongside its own personality and assignment. Each streams one labeled reply. A failed agent does not interrupt its peers. Completed answers are available together in the next turn. Parallel stays selected for follow-ups in the current chat. Select **Parallel** again to return to single replies. Each turn uses one model request per participating agent.
+Type `/parallel your message`. Choose at least two agents. Quill caps Free, unknown tiers, and API-key mode at three seats. Plus, Go, Team, Business, Enterprise and Edu get four. Pro gets five below 20 requests recorded for that account on this device in the preceding hour, then four until activity falls below the threshold. Provider eligibility and limits still apply. Reconnect an older registration in Settings to refresh its signed plan details. Give each an optional assignment, then select **Run agents**. Each agent gets the same snapshot of the chat history, goal, prompt and attachments, alongside its own personality and assignment. Each streams one labeled reply. A failed agent does not interrupt its peers. Completed answers are available together in the next turn. Parallel stays selected for follow-ups in the current chat. Choose **Return to chat** to return to single replies. Each turn uses one model request per participating agent.
 
 ## Roundtable
 
-Choose **Roundtable** beside the composer, or enter `/debate your question`. Select a seat to edit its name, model, and personality. Choose a personality preset or write your own. Use **Add agent** or **Remove agent** to seat two to eight people. Multiple seats can use the same model. The last seat chairs the debate. Review the displayed billing source and request range, then choose **Start debate**. Settings → Agents sets a hard limit of two to eight requests, default eight. With eight seats and eight requests, seven agents open and the chair synthesizes the eighth response. Save and switch named teams per account. Architect, Tester and Teacher join the five original personality presets. The last started roster is remembered for each billing account on this device. Each saved debate keeps the profiles it used. The same conversation context and attachments go to the participants. ChatGPT sign-in uses the account catalog; API-key billing uses the key’s model list.
+Enter `/roundtable your question`. Select a seat to edit its name, model, and personality. Choose a personality preset or write your own. Use **Add agent** or **Remove agent** to seat two to eight people. Multiple seats can use the same model. The last seat chairs the debate. Review the displayed billing source and request range, then choose **Start debate**. Settings → Agents sets a hard limit of two to eight requests, default eight. With eight seats and eight requests, seven agents open and the chair synthesizes the eighth response. Save and switch named teams per account. Architect, Tester and Teacher join the five original personality presets. The last started roster is remembered for each billing account on this device. Each saved debate keeps the profiles it used. The same conversation context and attachments go to the participants. ChatGPT sign-in uses the account catalog; API-key billing uses the key’s model list.
 
 Finch, Moss and Pip publish independent openings. The last seat reviews them, returns an answer on consensus, or invites as many rebuttals as the remaining budget allows before synthesizing a conclusion. The circle highlights active speakers. Scroll the public transcript to read earlier contributions. Stop cancels the run. The transcript, model assignments and status are retained locally. Usage counts each participant request.
+
+
+### Request budget and billing
+
+Each Roundtable participant makes a separate model request. With the default budget of eight, a three-agent question uses four requests if the chair reaches consensus, or up to eight if it needs rebuttals and a final synthesis. Eight seats use seven opening requests plus one final answer.
+
+| Seats | Early consensus | Maximum requests per question |
+| --- | --- | --- |
+| 2 | 3 | 6 |
+| 3 | 4 | 8 |
+| 4–7 | Seats + 1 | 8 |
+| 8 | 8 | 8 |
+
+The table assumes the default eight-request budget. **Settings → Agents → Roundtable request limit** sets a hard cap from two to eight. The lineup must fit within that cap. The setup panel shows the request range before you send.
+
+Each request includes conversation context and attachments. Later speakers also receive previous contributions, so their input can grow during the debate. API-key mode bills the input and output tokens for every request at that request's model rate. ChatGPT plan mode consumes the connected account's eligible usage allowance. Request count alone does not predict the total token cost.
+
+Stopping cancels outstanding work. Requests already accepted by the provider may still consume usage. Failures can end a run below the displayed range, and starting the question again creates a fresh budget. **Usage** and **/status** show local request counters and tokens reported by the provider. Missing usage reports leave token totals incomplete.
+
+**Pull up a chair** uses sequential turns up to the configured budget, including the final answer. Interjections use the next available turn. Immediate interruption stops the current speaker and the next request still counts toward the same cap.
 
 ## Slash commands
 
@@ -161,3 +193,21 @@ The application checks for updates on startup. An available release marks Settin
 Privileged operations live in Rust. The main window’s capability allows the named chat commands, event subscription and native confirmation dialogs. The local UI has no general filesystem, shell or HTTP permission. Chat links open in the system browser after a Rust-side HTTP(S) scheme check. Markdown raw HTML is disabled and remote images in replies render as alt text.
 
 
+
+## Development checks
+
+The [CI workflow](.github/workflows/ci.yml) runs on pushes, pull requests, and manual dispatch. It uses Rust 1.90.0 on Ubuntu 24.04, installs native Tauri and SQLCipher dependencies, builds the frontend, checks Rust formatting, treats Clippy warnings as failures, and runs all Rust targets with locked dependency versions.
+
+```sh
+npm ci
+npm run build
+cargo +1.90.0 fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo +1.90.0 clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo +1.90.0 test --locked --manifest-path src-tauri/Cargo.toml --all-targets
+```
+
+The tests use temporary databases and local HTTP fixtures. Live OpenAI calls and credentials are unnecessary. The CI result covers its Linux checks. Device sign-in, native UI interactions, and other platform builds require separate validation.
+
+## License
+
+Quill is licensed under the [MIT License](LICENSE). Third-party components and bundled fonts retain their own licenses. Font notices are in [public/licenses](public/licenses).
