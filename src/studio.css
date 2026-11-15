@@ -1,0 +1,166 @@
+.studio-panel {
+  width: clamp(320px, 35vw, 600px);
+  min-height: 0;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--paper);
+  color: var(--ink);
+  border-inline-start: 1px solid var(--line);
+  padding: 16px;
+  overflow: hidden;
+}
+.studio-panel:has(.branch-grid) {
+  width: min(56vw, 860px);
+}
+.studio-panel header,
+.studio-actions,
+.studio-panel nav,
+.floor-form .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.studio-panel header {
+  justify-content: space-between;
+}
+.studio-panel h2,
+.studio-panel h3,
+.studio-panel p {
+  margin: 4px 0 8px;
+}
+.studio-panel h2 {
+  font-size: 18px;
+}
+.studio-panel h3 {
+  font-size: 14px;
+}
+.studio-panel small,
+.studio-actions button {
+  color: var(--muted);
+}
+.studio-panel nav button[aria-pressed='true'],
+.studio-panel summary {
+  color: var(--accent);
+}
+.studio-scroll {
+  overflow: auto;
+  scrollbar-width: thin;
+  min-height: 0;
+  padding: 0 4px 16px 0;
+}
+.studio-panel section,
+.studio-panel form {
+  margin: 8px 0 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.studio-panel label,
+.floor-form label {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.studio-panel textarea,
+.studio-panel select,
+.floor-form textarea,
+.floor-form select {
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px;
+  font: inherit;
+}
+.studio-panel p,
+.studio-panel summary,
+.floor-form p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.studio-panel button,
+.studio-actions button,
+.studio-launch,
+.floor-form button,
+.parallel-reply button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 4px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.studio-actions {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.studio-panel button:disabled,
+.studio-actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.studio-panel .recent-turn {
+  display: grid;
+  text-align: left;
+  width: 100%;
+  margin-block: 5px;
+}
+.pin-card {
+  padding-block: 6px;
+}
+.branch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.branch-grid section {
+  max-height: 45vh;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.floor-form {
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+.rt-stage .rt-table.floor-button {
+  pointer-events: auto;
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+  z-index: 1;
+}
+.rt-seat.hand .rt-face {
+  outline: 2px solid var(--accent);
+}
+.rt-seat.hand {
+  cursor: pointer;
+}
+.studio-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.turn:focus-visible {
+  outline: 2px solid var(--accent);
+}
+@media (max-width: 900px) {
+  .studio-panel,
+  .studio-panel:has(.branch-grid) {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 8;
+    width: min(95vw, 530px);
+    box-shadow: 0 8px 32px #0003;
+  }
+  .desktop-body {
+    position: relative;
+  }
+}
