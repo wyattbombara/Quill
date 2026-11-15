@@ -73,14 +73,12 @@ pub async fn save_preferences(
         .0
         .store(options.quit_on_close, std::sync::atomic::Ordering::Release);
     app.set_theme(preferences.theme.native());
-    if changed {
-        if let Some(old) = current.replace(shortcut) {
-            manager.unregister(old).map_err(|e| {
-                invalid(format!(
-                    "New shortcut saved. Restart to release old shortcut: {e}"
-                ))
-            })?;
-        }
+    if changed && let Some(old) = current.replace(shortcut) {
+        manager.unregister(old).map_err(|e| {
+            invalid(format!(
+                "New shortcut saved. Restart to release old shortcut: {e}"
+            ))
+        })?;
     }
     Ok(())
 }

@@ -96,19 +96,29 @@ impl StoredRoster {
 
 #[derive(Deserialize)]
 pub struct DebateOptions {
+    #[serde(default)]
+    pub interactive: bool,
+    #[serde(default)]
+    pub blind: bool,
+    #[serde(default)]
+    pub category: Option<String>,
     pub account: Option<String>,
     #[serde(flatten)]
     pub run: AgentRun,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Debate {
     #[serde(flatten)]
     pub run: AgentRun,
     pub entries: Vec<DebateEntry>,
+    #[serde(default)]
+    pub floor: Vec<crate::services::studio::FloorNote>,
+    #[serde(default)]
+    pub ballot: Option<crate::services::studio::Ballot>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct DebateEntry {
     pub model: Option<String>,
     pub id: i64,
@@ -271,7 +281,14 @@ pub enum StreamEvent {
     Started {
         id: i64,
         model: String,
+        ballot: Option<crate::services::studio::Ballot>,
     },
+    #[serde(rename = "floorNote")]
+    FloorNote {
+        note: crate::services::studio::FloorNote,
+    },
+    #[serde(rename = "floorClosed")]
+    FloorClosed,
     Delta {
         text: String,
     },

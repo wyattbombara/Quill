@@ -3118,7 +3118,7 @@ dependencies = [
 
 [[package]]
 name = "quill-chat"
-version = "0.2.9"
+version = "0.3.2"
 dependencies = [
  "base64 0.22.1",
  "eventsource-stream",

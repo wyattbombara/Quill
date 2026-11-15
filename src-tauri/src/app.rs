@@ -1,4 +1,4 @@
-use crate::commands::{auth::*, chat::*, settings::*};
+use crate::commands::{auth::*, chat::*, settings::*, studio::*};
 use crate::services::{database::Database, desktop, updates::*};
 use std::time::Duration;
 use tauri::{Manager, WindowEvent};
@@ -101,6 +101,14 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            workspace,
+            save_pin,
+            remove_pin,
+            save_draft,
+            join_project,
+            fork_chat,
+            cast_vote,
+            take_floor,
             list_chats,
             auth_status,
             chatgpt_login,

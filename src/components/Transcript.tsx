@@ -13,47 +13,103 @@ import { Roundtable } from './Roundtable';
 import { Icon, QuillMark } from './Icon';
 
 const MarkdownBody = lazy(() => import('./MarkdownBody'));
-function ParallelReplies({ turn }: { turn: Turn }) {
+export interface TurnActions {
+  source: (chat: number, turn: number) => void;
+  busy: boolean;
+  vote: (turn: number, seat: number) => void;
+  fork: (turn: number) => void;
+  pin: (turn: Turn) => void;
+}
+function ParallelReplies({
+  turn,
+  actions,
+}: {
+  turn: Turn;
+  actions?: TurnActions;
+}) {
   const team = turn.debate!;
+  const ballot = team.ballot;
+  const blind = !!ballot && ballot.winner === null;
   return (
     <section className="parallel-replies" aria-label="Parallel replies">
       <h2>Parallel replies</h2>
-      {team.agents.map((agent, seat) => {
-        const entry = team.entries.find((e) => e.seat === seat);
-        const status =
-          entry?.status ??
-          (turn.status === 'streaming' ? 'queued' : turn.status);
-        return (
-          <section
-            key={seat}
-            className={'parallel-reply seat-' + seat}
-            aria-label={agent.name + ' reply'}
-          >
-            <header>
-              <strong>{agent.name}</strong>
-              <small title={entry?.model ?? agent.model}>
-                {shortModel(entry?.model ?? agent.model)}
-              </small>
-              <span>{status}</span>
-            </header>
-            {agent.focus && <p className="agent-focus">{agent.focus}</p>}
-            {entry?.text && (
-              <div className="markdown">
-                <Suspense
-                  fallback={<p className="plain-reply">{entry.text}</p>}
+      {ballot && (
+        <p>
+          {blind
+            ? 'Pick the answer you would use to reveal the models.'
+            : 'Models revealed · your choice is marked below.'}
+        </p>
+      )}
+      {(ballot?.ordering ?? team.agents.map((_, i) => i)).map(
+        (seat, position) => {
+          const agent = team.agents[seat];
+          const label = blind
+            ? 'Answer ' + String.fromCharCode(65 + position)
+            : agent.name;
+          const entry = team.entries.find((e) => e.seat === seat);
+          let answer = entry?.text ?? '';
+          if (blind) {
+            const identities = [
+              ...team.agents.flatMap((a) => [a.name, a.model]),
+              ...team.entries.map((e) => e.model ?? ''),
+            ]
+              .filter(Boolean)
+              .sort((a, b) => b.length - a.length);
+            for (const id of identities)
+              answer = answer.replaceAll(id, '[hidden]');
+          }
+          const status =
+            entry?.status ??
+            (turn.status === 'streaming' ? 'queued' : turn.status);
+          return (
+            <section
+              key={seat}
+              className={'parallel-reply seat-' + (blind ? position : seat)}
+              aria-label={label + ' reply'}
+            >
+              <header>
+                <strong>{label}</strong>
+                {!blind && (
+                  <small title={entry?.model ?? agent.model}>
+                    {shortModel(entry?.model ?? agent.model)}
+                  </small>
+                )}
+                <span>{status}</span>
+              </header>
+              {ballot?.winner === seat && <strong>Your pick</strong>}
+              {blind && actions && entry?.status === 'complete' && (
+                <button
+                  disabled={actions.busy || turn.status === 'streaming'}
+                  onClick={() => actions.vote(turn.id, seat)}
                 >
-                  <MarkdownBody text={entry.text} />
-                </Suspense>
-              </div>
-            )}
-          </section>
-        );
-      })}
+                  Choose {label}
+                </button>
+              )}
+              {!blind && agent.focus && (
+                <p className="agent-focus">{agent.focus}</p>
+              )}
+              {answer && (
+                <div className="markdown">
+                  <Suspense fallback={<p className="plain-reply">{answer}</p>}>
+                    <MarkdownBody text={answer} source={actions?.source} />
+                  </Suspense>
+                </div>
+              )}
+            </section>
+          );
+        },
+      )}
     </section>
   );
 }
 
-const Entry = memo(function Entry({ turn }: { turn: Turn }) {
+const Entry = memo(function Entry({
+  turn,
+  actions,
+}: {
+  turn: Turn;
+  actions?: TurnActions;
+}) {
   const [copyStatus, setCopyStatus] = useState('');
   async function copyReply() {
     try {
@@ -70,7 +126,7 @@ const Entry = memo(function Entry({ turn }: { turn: Turn }) {
   const replyModel =
     chairEntry?.model ?? turn.debate?.agents.at(-1)?.model ?? turn.model;
   return (
-    <article className="turn">
+    <article className="turn" id={'turn-' + turn.id} tabIndex={-1}>
       <div className="user-block">
         <div className="speaker">You</div>
         <div className="user-bubble">
@@ -87,9 +143,13 @@ const Entry = memo(function Entry({ turn }: { turn: Turn }) {
           )}
         </div>
       </div>
-      {parallel && <ParallelReplies turn={turn} />}
+      {parallel && <ParallelReplies turn={turn} actions={actions} />}
       {turn.debate && !parallel && (
-        <Roundtable debate={turn.debate} status={turn.status} />
+        <Roundtable
+          debate={turn.debate}
+          status={turn.status}
+          turnId={turn.id}
+        />
       )}
       {!parallel && (!turn.debate || turn.reply) && (
         <div className="speaker assistant">
@@ -104,7 +164,7 @@ const Entry = memo(function Entry({ turn }: { turn: Turn }) {
         <div className="markdown">
           {turn.reply ? (
             <Suspense fallback={<p className="plain-reply">{turn.reply}</p>}>
-              <MarkdownBody text={turn.reply} />
+              <MarkdownBody text={turn.reply} source={actions?.source} />
             </Suspense>
           ) : (
             turn.status === 'streaming' &&
@@ -134,6 +194,16 @@ const Entry = memo(function Entry({ turn }: { turn: Turn }) {
           <small role="status">{copyStatus}</small>
         </div>
       )}
+      {actions && turn.status !== 'streaming' && (
+        <div className="studio-actions">
+          <button disabled={actions.busy} onClick={() => actions.fork(turn.id)}>
+            Try both · branch here
+          </button>
+          <button disabled={actions.busy} onClick={() => actions.pin(turn)}>
+            Pin to project
+          </button>
+        </div>
+      )}
       {turn.status !== 'complete' && turn.status !== 'streaming' && (
         <p className="status">
           {turn.error ||
@@ -150,9 +220,11 @@ export function Transcript({
   turns,
   chat,
   activity,
+  actions,
   followReplies = true,
   title,
 }: {
+  actions?: TurnActions;
   followReplies?: boolean;
   activity?: number;
   title?: string;
@@ -221,7 +293,7 @@ export function Transcript({
             </div>
           )}
           {turns.map((t) => (
-            <Entry key={t.id} turn={t} />
+            <Entry key={t.id} turn={t} actions={actions} />
           ))}
         </div>
       </div>

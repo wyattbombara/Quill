@@ -1,11 +1,13 @@
 import { readTeams, writeTeams } from '../workspaceStorage';
 import { shortModel } from '../models';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AgentMode, Debate, DebateAgent, Turn } from '../ipc';
+import { call } from '../ipc';
 import { modelGroups } from '../models';
 
 const names = ['Finch', 'Moss', 'Pip', 'Rook', 'Wren', 'Cedar', 'Fern', 'Lark'];
 const phases = {
+  discussion: 'Discussion',
   parallel: 'Independent reply',
   opening: 'Opening',
   review: 'Review',
@@ -18,6 +20,9 @@ export interface Roster {
   account: string | null;
   limit: number;
   capacityNote?: string;
+  category?: string;
+  blind?: boolean;
+  interactive?: boolean;
   choices: string[];
   agents: DebateAgent[];
 }
@@ -132,9 +137,13 @@ export function loadRoster(
 export function RosterPicker({
   roster,
   update,
+  configure,
   busy,
 }: {
   roster: Roster;
+  configure?: (
+    options: Partial<Pick<Roster, 'blind' | 'interactive' | 'category'>>,
+  ) => void;
   update: (agents: DebateAgent[]) => void;
   busy: boolean;
 }) {
@@ -157,6 +166,37 @@ export function RosterPicker({
     <fieldset className="rt-setup" disabled={busy}>
       <legend>{parallel ? 'Parallel agents' : 'Roundtable'}</legend>
       <div className="rt-editor">
+        {configure && (
+          <label className="studio-check">
+            <input
+              type="checkbox"
+              checked={parallel ? !!roster.blind : !!roster.interactive}
+              onChange={(e) =>
+                configure(
+                  parallel
+                    ? { blind: e.target.checked }
+                    : { interactive: e.target.checked },
+                )
+              }
+            />
+            {parallel
+              ? 'Blind comparison · reveal models after voting'
+              : 'Pull up a chair · take turns and interject'}
+          </label>
+        )}
+        {configure && parallel && roster.blind && (
+          <label>
+            Comparison category
+            <select
+              value={roster.category ?? 'General'}
+              onChange={(e) => configure({ category: e.target.value })}
+            >
+              {['General', 'Coding', 'Writing', 'Brainstorming'].map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="team-controls">
           <label>
             Saved teams
@@ -318,13 +358,17 @@ export function RosterPicker({
           <small>
             {parallel
               ? agents.length
-              : requestCount(agents.length, roster.limit)}{' '}
+              : roster.interactive
+                ? roster.limit
+                : requestCount(agents.length, roster.limit)}{' '}
             model requests ·{' '}
             {roster.account ? 'ChatGPT plan' : 'API key billing'} ·{' '}
             {parallel
               ? 'Each agent replies independently.'
-              : (agents.at(-1)?.name || 'Last seat') +
-                ' gives the final answer.'}
+              : roster.interactive
+                ? 'You can direct the next speaker.'
+                : (agents.at(-1)?.name || 'Last seat') +
+                  ' gives the final answer.'}
           </small>
           <button
             className="rt-remove"
@@ -343,6 +387,9 @@ export function RosterPicker({
             ? roster.capacityNote
             : 'Roundtable budget: ' + roster.limit + ' requests.'}
         </small>
+        {!parallel && <small className="rt-cost-note">
+          Each request sends the chat context and attachments. API billing or plan usage applies to every request. Stopping may still consume usage.
+        </small>}
         {agents.length > roster.limit && (
           <small role="alert">
             Remove agents to fit the current limit of {roster.limit}.
@@ -359,16 +406,67 @@ export function RosterPicker({
 export function Roundtable({
   debate,
   status,
+  turnId,
 }: {
+  turnId?: number;
   debate: Debate;
   status: Turn['status'];
 }) {
+  const [form, setForm] = useState(false);
+  const [seat, setSeat] = useState<number | null>(null);
+  const [message, setMessage] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const active =
+    !!turnId && status === 'streaming' && debate.interactive && !debate.closed;
+  const handled = debate.floor?.length ?? 0;
+  useEffect(() => setPending(false), [handled]);
+  const latestPerSeat = debate.agents.map((_, i) =>
+    debate.entries.filter((e) => e.seat === i).at(-1),
+  );
+  const hand = (i: number) => {
+    const entry = latestPerSeat[i];
+    if (!entry || entry.status !== 'complete' || entry.phase !== 'discussion')
+      return '';
+    return entry.text.match(/(?:^|\n)HAND:\s*([^\n]+)/i)?.[1]?.trim() ?? '';
+  };
+  function invite(i: number) {
+    setSeat(i);
+    setForm(true);
+    setError('');
+    if (hand(i)) setMessage('Please expand on your objection: ' + hand(i));
+  }
+  async function submit(now: boolean) {
+    if (!turnId || pending || !message.trim()) return;
+    setPending(true);
+    setError('');
+    try {
+      await call('take_floor', { id: turnId, text: message, seat, now });
+      setMessage('');
+      setForm(false);
+    } catch (e) {
+      setPending(false);
+      setError(String(e));
+    }
+  }
+  const noteLines = (after: number | null) =>
+    debate.floor
+      ?.filter((n) => n.after_entry === after)
+      .map((n) => (
+        <div key={'floor' + n.id} className="rt-line">
+          <strong>You</strong>
+          <small>
+            {n.seat === null ? 'Everyone' : debate.agents[n.seat]?.name}
+          </small>
+          <p>{n.text}</p>
+        </div>
+      ));
   const log = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   useLayoutEffect(() => {
     const el = log.current;
     if (el && follow.current) el.scrollTop = el.scrollHeight;
-  }, [debate.entries]);
+  }, [debate.entries, debate.floor]);
   const live = debate.entries
     .filter((entry) => entry.status === 'streaming' && status === 'streaming')
     .map((e) => e.seat);
@@ -394,14 +492,31 @@ export function Roundtable({
           className={'rt-stage seats-' + debate.agents.length}
           aria-label="Agent seats"
         >
-          <div className="rt-table" aria-hidden="true">
-            Quill
-          </div>
+          {active ? (
+            <button
+              className="rt-table floor-button"
+              disabled={pending}
+              onClick={() => {
+                setForm(!form);
+                setSeat(null);
+                setError('');
+              }}
+            >
+              {pending ? 'Queued' : 'Interject'}
+            </button>
+          ) : (
+            <div className="rt-table" aria-hidden="true">
+              Quill
+            </div>
+          )}
           {debate.agents.map((agent, i) => (
             <div
               key={i}
               className={
-                'rt-seat seat-' + i + (live.includes(i) ? ' speaking' : '')
+                'rt-seat seat-' +
+                i +
+                (live.includes(i) ? ' speaking' : '') +
+                (active && hand(i) ? ' hand' : '')
               }
               style={{
                 left:
@@ -413,7 +528,16 @@ export function Roundtable({
                   38 * Math.cos((i * 2 * Math.PI) / debate.agents.length) +
                   '%',
               }}
-              title={[agent.name, agent.model, agent.personality]
+              role={active ? 'button' : undefined}
+              tabIndex={active ? 0 : undefined}
+              onClick={() => active && invite(i)}
+              onKeyDown={(e) => {
+                if (active && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  invite(i);
+                }
+              }}
+              title={[hand(i), agent.name, agent.model, agent.personality]
                 .filter(Boolean)
                 .join(' · ')}
               aria-label={
@@ -424,7 +548,10 @@ export function Roundtable({
               }
             >
               <i className="rt-face" aria-hidden="true" />
-              <b>{agent.name}</b>
+              <b>
+                {agent.name}
+                {active && hand(i) ? ' ✋' : ''}
+              </b>
             </div>
           ))}
         </div>
@@ -440,28 +567,84 @@ export function Roundtable({
               el.scrollHeight - el.scrollTop - el.clientHeight < 36;
           }}
         >
+          {noteLines(null)}
           {debate.entries.map((e) => (
-            <div key={e.id} className={'rt-line seat-' + e.seat}>
-              <strong title={debate.agents[e.seat]?.personality}>
-                {debate.agents[e.seat]?.name}
-              </strong>
-              <small>
-                {shortModel(e.model ?? debate.agents[e.seat]?.model ?? '')} ·{' '}
-                {phases[e.phase]}
-              </small>
-              <p>
-                {e.text ||
-                  (e.status === 'streaming'
-                    ? 'Waiting for reply…'
-                    : 'No reply received.')}
-              </p>
-              {e.status !== 'complete' && e.status !== 'streaming' && (
-                <small>{e.status}</small>
-              )}
-            </div>
+            <Fragment key={e.id}>
+              <div className={'rt-line seat-' + e.seat}>
+                <strong title={debate.agents[e.seat]?.personality}>
+                  {debate.agents[e.seat]?.name}
+                </strong>
+                <small>
+                  {shortModel(e.model ?? debate.agents[e.seat]?.model ?? '')} ·{' '}
+                  {phases[e.phase]}
+                </small>
+                <p>
+                  {e.text ||
+                    (e.status === 'streaming'
+                      ? 'Waiting for reply…'
+                      : 'No reply received.')}
+                </p>
+                {e.status !== 'complete' && e.status !== 'streaming' && (
+                  <small>{e.status}</small>
+                )}
+              </div>
+              {noteLines(e.id)}
+            </Fragment>
           ))}
         </div>
       </div>
+      {active && form && (
+        <form
+          className="floor-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit(false);
+          }}
+        >
+          <label>
+            Give the floor to
+            <select
+              value={seat ?? ''}
+              onChange={(e) =>
+                setSeat(e.target.value === '' ? null : Number(e.target.value))
+              }
+            >
+              <option value="">Everyone</option>
+              {debate.agents.map((a, i) => (
+                <option key={i} value={i}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Your interjection
+            <textarea
+              autoFocus
+              rows={2}
+              maxLength={2000}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+          </label>
+          <div className="row">
+            <button disabled={pending || !message.trim()}>
+              After this speaker
+            </button>
+            <button
+              type="button"
+              disabled={pending || !message.trim()}
+              onClick={() => void submit(true)}
+            >
+              Take the floor now
+            </button>
+            <button type="button" onClick={() => setForm(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+      {error && <p role="alert">{error}</p>}
     </section>
   );
 }

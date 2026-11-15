@@ -5,6 +5,7 @@ commands.allow = [
     "auth_status", "chatgpt_login", "cancel_login", "chatgpt_logout", "use_api_key",
     "plan_models", "select_plan_model", "welcome_seen",
     "set_chat_goal", "get_usage",
+    "workspace", "save_pin", "remove_pin", "save_draft", "join_project", "fork_chat", "cast_vote", "take_floor",
     "list_chats", "create_chat", "rename_chat", "delete_chat", "list_turns", "read_attachment",
     "debate_models", "send_message", "stop_reply", "get_preferences", "save_preferences",
     "shortcut_active", "key_present", "save_key", "remove_key", "open_link", "show_chat_window",

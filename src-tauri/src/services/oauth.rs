@@ -208,7 +208,7 @@ pub struct PlanClaims {
 }
 #[derive(Deserialize)]
 pub struct Identity {
-    #[serde(default, rename="https://api.openai.com/auth")]
+    #[serde(default, rename = "https://api.openai.com/auth")]
     pub plan: PlanClaims,
     pub sub: String,
     pub email: Option<String>,

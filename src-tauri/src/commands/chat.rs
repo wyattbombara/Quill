@@ -12,7 +12,10 @@ use tauri::{State, ipc::Channel};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
-pub struct Runs(Mutex<HashMap<i64, CancellationToken>>);
+pub struct Runs(
+    Mutex<HashMap<i64, CancellationToken>>,
+    Mutex<HashMap<i64, std::sync::Arc<crate::services::floor::Floor>>>,
+);
 impl Runs {
     fn entries(&self) -> std::sync::MutexGuard<'_, HashMap<i64, CancellationToken>> {
         self.0.lock().unwrap_or_else(|e| e.into_inner())
@@ -117,6 +120,22 @@ pub fn stop_reply(runs: State<'_, Runs>, id: i64) {
     }
 }
 #[tauri::command]
+pub fn take_floor(
+    runs: State<'_, Runs>,
+    id: i64,
+    seat: Option<usize>,
+    text: String,
+    now: bool,
+) -> Result<()> {
+    let rooms = runs.1.lock().unwrap_or_else(|e| e.into_inner());
+    rooms
+        .get(&id)
+        .ok_or_else(|| invalid("This Roundtable has closed."))?
+        .interject(seat, text, now)
+}
+// Tauri injects app state alongside the typed IPC arguments.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
 pub async fn send_message(
     auth: State<'_, super::auth::Auth>,
     db: State<'_, Database>,
@@ -129,24 +148,70 @@ pub async fn send_message(
     debate: Option<crate::model::DebateOptions>,
 ) -> Result<()> {
     let (key, model, account) = super::auth::authorization(&db, &auth, debate.as_ref()).await?;
+    let category = debate
+        .as_ref()
+        .and_then(|d| d.category.clone())
+        .unwrap_or_else(|| "General".into());
+    if !["General", "Coding", "Writing", "Brainstorming"].contains(&category.as_str()) {
+        return Err(invalid("Choose a comparison category."));
+    }
+    let blind = debate
+        .as_ref()
+        .is_some_and(|d| d.blind && d.run.mode == crate::model::AgentMode::Parallel);
+    let floor = debate
+        .as_ref()
+        .filter(|d| d.interactive && d.run.mode == crate::model::AgentMode::Roundtable)
+        .map(|d| std::sync::Arc::new(crate::services::floor::Floor::new(d.run.agents.len())));
     let agents = debate.map(|d| d.run);
     let roster = agents.clone();
-    let request = db
+    let (request, ballot) = db
         .run(move |c| {
-            database::begin_authorized_turn(c, chat, prompt, files, model, roster, Some(account))
+            let seats = roster.as_ref().map_or(0, |r| r.agents.len());
+            let tx = c.transaction()?;
+            let request = database::authorized_in_transaction(
+                &tx,
+                chat,
+                prompt,
+                files,
+                model,
+                roster,
+                Some(account),
+            )?;
+            let ballot = if blind {
+                Some(crate::services::studio::start_ballot(
+                    &tx, request.id, seats,
+                )?)
+            } else {
+                None
+            };
+            if blind {
+                tx.execute(
+                    "UPDATE ballots SET category=? WHERE turn=?",
+                    params![category, request.id],
+                )?;
+            }
+            tx.commit()?;
+            Ok((request, ballot))
         })
         .await?;
     let id = request.id;
     let token = CancellationToken::new();
     runs.entries().insert(id, token.clone());
+    if let Some(f) = &floor {
+        runs.1
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, f.clone());
+    }
     let mut reply = String::new();
     let result = async {
         channel.send(StreamEvent::Started {
             id,
             model: request.model.clone(),
+            ballot,
         })?;
         if let Some(agents) = agents {
-            reply = crate::services::debate::run(
+            reply = crate::services::debate::run_controlled(
                 &db,
                 &client,
                 api::RESPONSES,
@@ -156,6 +221,7 @@ pub async fn send_message(
                 &agents,
                 &token,
                 &channel,
+                floor.as_deref(),
             )
             .await?;
             return Ok(());
@@ -164,6 +230,7 @@ pub async fn send_message(
         api::stream(post, &db, request, &token, &channel, &mut reply).await
     }
     .await;
+    runs.1.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
     runs.entries().remove(&id);
     let (status, error) = match &result {
         Ok(()) => ("complete", None),

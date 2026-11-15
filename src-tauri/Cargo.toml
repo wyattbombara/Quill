@@ -1,6 +1,7 @@
 [package]
 name = "quill-chat"
-version = "0.2.9"
+version = "0.3.2"
+license = "MIT"
 edition = "2024"
 rust-version = "1.90"
 description = "Local desktop chat for the OpenAI API"

@@ -6,7 +6,13 @@ import { call } from '../ipc';
 
 const prose = [remarkGfm];
 const code = [rehypeHighlight];
-export default function MarkdownBody({ text }: { text: string }) {
+export default function MarkdownBody({
+  text,
+  source,
+}: {
+  text: string;
+  source?: (chat: number, turn: number) => void;
+}) {
   const [error, setError] = useState('');
   return (
     <>
@@ -26,6 +32,11 @@ export default function MarkdownBody({ text }: { text: string }) {
               href={href}
               onClick={(event) => {
                 event.preventDefault();
+                const local = href?.match(/^#quill-message-(\d+)-(\d+)$/);
+                if (local && source) {
+                  source(Number(local[1]), Number(local[2]));
+                  return;
+                }
                 if (href)
                   void call('open_link', { url: href }).catch((e) =>
                     setError(String(e)),
